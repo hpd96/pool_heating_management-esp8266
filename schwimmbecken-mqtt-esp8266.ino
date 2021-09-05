@@ -32,7 +32,7 @@
 #include <Ticker.h>
 
 #define TEMP_DELTA_MEHR_AN      4.5
-#define TEMP_DELTA_WENIGER_AUS  3.0
+#define TEMP_DELTA_WENIGER_AUS  2.5
 
 #define TEMP_MATTEN_MIN_PUMPEN 24.0
 #define TEMP_BECKEN_MAX_PUMPEN 38.0
@@ -84,7 +84,7 @@ const char* sVersion = "0.9.94";
 
 #include <time.h>                   // time() ctime()
 
-    char sNTPUhrzeit[50];
+char sNTPUhrzeit[50];
 
 
 #include "my-defines.h"
@@ -109,7 +109,7 @@ const char* mqtt_server = MQTT_SERVER;    // name address for MQTT broker (using
 
 const char* mqtt_topic_temp_becken = "garten/schwimmbecken/temp_becken";
 const char* mqtt_topic_temp_matten = "garten/schwimmbecken/temp_matten";
-const char* mqtt_topic_temp_delta = "garten/schwimmbecken/temp_delta"
+const char* mqtt_topic_temp_delta = "garten/schwimmbecken/temp_delta";
 
 const char* mqtt_topic_min_filter = "garten/schwimmbecken/minuten_filterung";
 
@@ -127,9 +127,18 @@ const char* mqtt_topic_wifi = "garten/schwimmbecken/wifi";
 const char* mqtt_topic_time = "garten/schwimmbecken/time";
 
 
+//28FE9C2918200679   5m  solar matten
+#define DS18_ADDRESS_SOLAR_MATS 0x28, 0xfe, 0x9c, 0x29, 0x18, 0x20, 0x06, 0x79
+//28CD051D070000C6   15m   becken
+#define DS18_ADDRESS_POOL_SIDE 0x28, 0xcd, 0x05, 0x1d, 0x07, 0x00, 0x00, 0xc6
+
+
+
 const char* update_path = "/firmware";
 const char* update_username = "admin";
 const char* update_password = "admin";
+
+// ############################################################################################################
 
 ESP8266WebServer httpServer(80);
 ESP8266HTTPUpdateServer httpUpdater;
@@ -142,11 +151,9 @@ PubSubClient mqtt_client(espClient);
 #include <DallasTemperature.h>
 
 
-DeviceAddress pool_sensor_matten = { 0x28, 0xfe, 0x9c, 0x29, 0x18, 0x20, 0x06, 0x79 };
-DeviceAddress pool_sensor_becken = { 0x28, 0xcd, 0x05, 0x1d, 0x07, 0x00, 0x00, 0xc6 };
+DeviceAddress pool_sensor_matten = { DS18_ADDRESS_SOLAR_MATS };
+DeviceAddress pool_sensor_becken = { DS18_ADDRESS_POOL_SIDE  };
 
-//28FE9C2918200679   5m  solar matten
-//28CD051D070000C6   15m   becken
 
 
 bool SendUpdate = true;
