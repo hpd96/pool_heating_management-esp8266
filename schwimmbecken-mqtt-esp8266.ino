@@ -76,7 +76,7 @@ unsigned int iSekundenFilterung=0;
 
 unsigned long lastmillis;
 
-const char* sVersion = "0.9.93";
+const char* sVersion = "0.9.94";
 
 /* Configuration of NTP */
 #define MY_NTP_SERVER "de.pool.ntp.org"           
@@ -154,10 +154,7 @@ bool SendUpdate = true;
 Ticker ticker1;
 Ticker ticker2;
 
-int bSendOnce_no_Pumpzeit = false;
-
 int bSensorCheckOK = false;
-
 int bTempDeltaValid = false;
 float  fTempBecken, fTempMatten, fTempDelta;  
 
@@ -176,6 +173,12 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 // https://werner.rothschopf.net/201802_arduino_esp8266_ntp.htm
+
+uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000 ()
+{
+  return 30 * 1000UL; // 30 sec
+}
+
 uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
 {
   return 6 * 60 * 60 * 1000UL; // 6 hours
@@ -229,9 +232,20 @@ void sendVersionInfo()
 {
     mqtt_client.publish(mqtt_topic_version, sVersion);
     long lRssi = WiFi.RSSI();
+    int iQuality=0;
     char sBuffer[50];
-    sprintf(sBuffer, "RSSI = %d dBm", lRssi);
-    mqtt_client.publish(mqtt_topic_wifi, itoa( lRssi, sBuffer, 10) );
+    // sprintf(sBuffer, "RSSI = %d dBm", lRssi);
+    
+    // dBm to Quality:
+    if(lRssi <= -100)
+        iQuality = 0;
+    else if(lRssi >= -50)
+        iQuality = 100;
+    else
+        iQuality = 2 * (lRssi + 100);
+        
+    sprintf(sBuffer, "%d", iQuality);
+    mqtt_client.publish(mqtt_topic_wifi, sBuffer );
 }
 
 
@@ -278,15 +292,10 @@ void MqttReconnect() {
     delay(1000);
     if (mqtt_client.connect(mqtt_client_id)) {
       Serial.print("connected: topic ");  Serial.println( mqtt_topic_cmd );
-      // Once connected, publish an announcement...
-      mqtt_client.publish(mqtt_topic_version, sVersion);
 
-    long lRssi = WiFi.RSSI();
-    char sBuffer[50];
-    sprintf(sBuffer, "RSSI = %d dBm", lRssi);
-    mqtt_client.publish(mqtt_topic_wifi, sBuffer);
-    
-      
+      // Once connected, publish an announcement...
+      sendVersionInfo();
+
       // ... and resubscribe
       mqtt_client.subscribe(mqtt_topic_cmd);
     } else {
@@ -433,23 +442,22 @@ bool transitionS1S2()
 bool transitionS1S3()
 {
   if ( ( fTempDelta >= TEMP_DELTA_MEHR_AN ) && ( fTempMatten >= TEMP_MATTEN_MIN_PUMPEN  )  )
-  return true;
+    return true;
   else
-  return false;
+    return false;
 
 }
 
 //-------------------------
 void state2(){
   Serial.println("State 2 PUMPEN_FILTER");
-    if(machine.executeOnce){
+  if(machine.executeOnce){
     schaltePumpe(1);
     schalte3Hahn(0);
-       schalteUVFilter(1);
-  sendStatusInfo();
-    }
-      iSekundenFilterung += (STATE_DELAY/1000);
-
+    schalteUVFilter(1);
+    sendStatusInfo();
+  }
+  iSekundenFilterung += (STATE_DELAY/1000);
 }
 
 bool transitionS2S1(){
@@ -482,7 +490,6 @@ void state3(){
   schaltePumpe(1);
     schalte3Hahn(1);
     schalteUVFilter(1);
-    
   sendStatusInfo();
   }
   iSekundenFilterung += (STATE_DELAY/1000);
@@ -686,6 +693,10 @@ void setup(void) {
   S3->addTransition(&transitionS1S4,S4);  // S3 transition to S4
   S4->addTransition(&transitionS4S1,S1);  // S4 transition to S1
 
+  Serial.println(machine.currentState);
+  
+  machine.transitionTo(S0);
+  Serial.println(machine.currentState);
   sendStatusInfo();
 }
 
@@ -828,24 +839,25 @@ void loop(void) {
 
     
   
-  // call sensors.requestTemperatures() to issue a global temperature
-  // request to all devices on the bus
-  Serial.print("\n Requesting temperatures...");
-  sensors.requestTemperatures(); // Send the command to get temperatures
-  Serial.println("DONE");
+    // call sensors.requestTemperatures() to issue a global temperature
+    // request to all devices on the bus
+    Serial.print("\n Requesting temperatures...");
+    sensors.requestTemperatures(); // Send the command to get temperatures
+    Serial.println("DONE");
 
     char mqtt_item[] = MQTT_ITEM;
     float fTemp;
 
-      char sBuffer[7];         //the ASCII of the integer will be stored in this char array
-      itoa(iSekundenFilterung / 60, sBuffer,10);
-        mqtt_client.publish( mqtt_topic_min_filter, sBuffer );
+    char sBuffer[7];         //the ASCII of the integer will be stored in this char array
+    itoa(iSekundenFilterung / 60, sBuffer,10);
+    mqtt_client.publish( mqtt_topic_min_filter, sBuffer );
 
-           int bTempValid=false;
-#if 1
-     sensors.requestTemperatures();
+    int bTempValid=false;
+
+      sensors.requestTemperatures();
+      fTempDelta = -96;
      
-    fTemp = sensors.getTempC(pool_sensor_becken);
+      fTemp = sensors.getTempC(pool_sensor_becken);
       Serial.print(mqtt_topic_temp_becken);
       Serial.print(" ");
       Serial.print(fTemp);
@@ -854,7 +866,7 @@ void loop(void) {
       {
         mqtt_client.publish( mqtt_topic_temp_becken, dtostrf(fTemp, 3, 1, sBUFFER) );
         fTempBecken=fTemp;
-         bTempValid=true; 
+        bTempValid=true; 
       }
       else
       { Serial.print("pool_sensor_becken out of range!\n"); bTempValid=false; 
@@ -862,7 +874,7 @@ void loop(void) {
       }
 
 
-    fTemp = sensors.getTempC(pool_sensor_matten);
+      fTemp = sensors.getTempC(pool_sensor_matten);
       Serial.print(mqtt_topic_temp_matten);
       Serial.print(" ");
       Serial.print(fTemp);
@@ -874,59 +886,27 @@ void loop(void) {
         if ( bTempValid == true )
         {  
           fTempDelta = fTempMatten - fTempBecken;
-                  mqtt_client.publish( mqtt_topic_temp_delta, dtostrf(fTempDelta, 3, 1, sBUFFER) ); 
+          mqtt_client.publish( mqtt_topic_temp_delta, dtostrf(fTempDelta, 3, 1, sBUFFER) ); 
           bTempDeltaValid = true;
         }
-        
-  
-        bTempValid=true; 
       }
       else
       {
-          Serial.print("pool_sensor_matten out of range!\n");  bTempValid=false;
-            mqtt_client.publish(mqtt_topic_text, "pool_sensor_matten out of range!");
+        Serial.print("pool_sensor_matten out of range!\n");  bTempValid=false;
+        mqtt_client.publish(mqtt_topic_text, "pool_sensor_matten out of range!");
       }
 
 
+      oneWire.depower(); //???
 
-#else
-    if ( sensors.getDeviceCount() >= 2 )
-    {
-      
-    for(i=0; i<sensors.getDeviceCount(); i++)
-    {
-      fTemp = sensors.getTempCByIndex(i);
-      Serial.print("Temperature for Device ");
-      Serial.print( i+1, DEC );
-      Serial.print(" is: ");
-      Serial.print(fTemp);
-      Serial.print("\n");
-      if ( (fTemp >= PLAUSI_MIN) && (fTemp <= PLAUSI_MAX)  &&  (fTemp != -127.00) )
-      {
-        mqtt_item[ strlen(mqtt_item)-1 ]= i + '0' + 1; // int to char
-        mqtt_client.publish( mqtt_item, dtostrf(fTemp, 3, 1, sBUFFER) );
-      }
-      else
-      { Serial.print( i+1, DEC); Serial.print(" out of range!"); }
-    }
-
-    } else { 
-    Serial.print("no sensors found!\n");
-    }
-
-#endif
-
-//    sensors.shutdown();
-    oneWire.depower(); //???
-
-    SendUpdate = false;
+      SendUpdate = false;
     }
 
     if (myUVLampeTimerOFF.check())
     {
-                  mqtt_client.publish(mqtt_topic_text, "timer: UV lampe OFF!");
+      mqtt_client.publish(mqtt_topic_text, "timer: UV lampe OFF!");
       schalteOpenhab( 0, serverNameUVFilter );
-            Serial.print("timer: UV lampe OFF  ");
+      Serial.print("timer: UV lampe OFF  ");
       myUVLampeTimerOFF.unset();
     }
   
