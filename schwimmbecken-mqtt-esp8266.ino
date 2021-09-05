@@ -195,6 +195,20 @@ int getTimeOfDayMinutes()
 }
 
 
+bool isNTPtimeSet()
+{
+  time_t now;                         // this is the epoch
+  tm tm;                              // the structure tm holds time information in a more convient way
+  time(&now);                       // read the current time
+  localtime_r(&now, &tm);           // update the structure tm with the current time
+  if ( 1970 < (tm.tm_year + 1900) ) return true;
+
+  Serial.println("NTP internet date not set by now...");
+  mqtt_client.publish(mqtt_topic_text, "NTP internet date not set by now...");
+  return false;
+}
+
+
 void showTime() 
 {
   time_t now;                         // this is the epoch
@@ -403,7 +417,7 @@ bool transitionS0S4(){
   // if shelly erreichbar
   // if PV hat strom
   // if pumpe enabled
-  if ( (bSensorCheckOK == true ) && ( bTempDeltaValid == true ) )  // && bUhrzeitNTP == true
+  if ( (bSensorCheckOK == true ) && ( bTempDeltaValid == true ) && ( isNTPtimeSet() == true ) )
   return true;
   else
   return false;
