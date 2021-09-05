@@ -103,13 +103,13 @@ const char* password = WIFI_PASSWORD;
 
 #include <PubSubClient.h>
 //Your MQTT Broker
-const char* mqtt_server = "hwr-pi.fritz.box";    // name address for MQTT broker (using DNS)
+const char* mqtt_server = MQTT_SERVER;    // name address for MQTT broker (using DNS)
 
 #define MQTT_ITEM "garten/schwimmbecken/tempX"
 
 const char* mqtt_topic_temp_becken = "garten/schwimmbecken/temp_becken";
 const char* mqtt_topic_temp_matten = "garten/schwimmbecken/temp_matten";
-const char* mqtt_topic_temp_delta = "garten/schwimmbecken/temp_delta";
+const char* mqtt_topic_temp_delta = "garten/schwimmbecken/temp_delta"
 
 const char* mqtt_topic_min_filter = "garten/schwimmbecken/minuten_filterung";
 
@@ -612,11 +612,11 @@ void setup(void) {
   Serial.printf("\nSketch version: %s\n", sVersion);
 
 
-  mqtt_client.setServer(mqtt_server, 1883);
+  mqtt_client.setServer(mqtt_server, MQTT_SERVER_PORT);
   mqtt_client.setCallback(MqttCallback);
   MqttReconnect();
 
-    mqtt_client.publish(mqtt_topic_text, "starting...");
+  mqtt_client.publish(mqtt_topic_text, "starting...");
   
   showInfo();
 
