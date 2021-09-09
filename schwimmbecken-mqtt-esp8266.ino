@@ -46,7 +46,7 @@
 // #define UHRZEIT_PUMPE_START_MINS ( 23 * 60 + 41 )
 // #define UHRZEIT_PUMPE_ENDE_MINS  ( 23 * 60 + 42 )
 
-#define NACHLAUF_UV_LAMPE_MIN 16                       // [min]
+#define NACHLAUF_UV_LAMPE_MIN 30                       // [min]
 
 
 // STM ==========================================================
@@ -245,7 +245,7 @@ void showTime()
 
     // tageswechesel
     if ( ( tm.tm_min <= 1 ) && ( tm.tm_hour == 0 ) )
-    {   
+    {
       Serial.print("Tageswechsel: Minuten Filterung auf null");
       mqtt_client.publish(mqtt_topic_text, "Tageswechsel: Minuten Filterung auf null");
       iSekundenFilterung = 0;
