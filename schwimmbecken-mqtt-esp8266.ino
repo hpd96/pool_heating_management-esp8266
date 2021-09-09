@@ -39,7 +39,6 @@
 
 #define MIN_FILTERUNG_PRO_TAG 120                      // 120 [min]
 
-#define UHRZEIT_TAGESWECHSEL "Uhrzeit = 00:12"
 
 #define UHRZEIT_PUMPE_START_MINS ( 9 * 60 + 30 )
 #define UHRZEIT_PUMPE_ENDE_MINS  ( 18 * 60 + 30 )
@@ -104,8 +103,6 @@ const char* password = WIFI_PASSWORD;
 #include <PubSubClient.h>
 //Your MQTT Broker
 const char* mqtt_server = MQTT_SERVER;    // name address for MQTT broker (using DNS)
-
-#define MQTT_ITEM "garten/schwimmbecken/tempX"
 
 const char* mqtt_topic_temp_becken = "garten/schwimmbecken/temp_becken";
 const char* mqtt_topic_temp_matten = "garten/schwimmbecken/temp_matten";
@@ -244,7 +241,16 @@ void showTime()
   Serial.println();
 
   sprintf(sNTPUhrzeit, "Uhrzeit = %02d:%02d", tm.tm_hour, tm.tm_min );
-  mqtt_client.publish(mqtt_topic_time, sNTPUhrzeit);    
+  mqtt_client.publish(mqtt_topic_time, sNTPUhrzeit);
+
+    // tageswechesel
+    if ( ( tm.tm_min <= 1 ) && ( tm.tm_hour == 0 ) )
+    {   
+      Serial.print("Tageswechsel: Minuten Filterung auf null");
+      mqtt_client.publish(mqtt_topic_text, "Tageswechsel: Minuten Filterung auf null");
+      iSekundenFilterung = 0;
+    }
+
 }
 
 
@@ -694,7 +700,7 @@ void setup(void) {
   }
 
   myUVLampeTimerOFF.set_max_delay( NACHLAUF_UV_LAMPE_MIN * 60000UL ); // 16 x  1 minute   
-  ticker1.attach(5*60, sendVersionInfo);
+  ticker1.attach(15*60, sendVersionInfo);
   ticker2.attach(60, sendStatusInfo);
 
 
@@ -847,26 +853,14 @@ void loop(void) {
   
   if (SendUpdate)
   {
-
-  // tageswechesel
-    if (strcmp( sNTPUhrzeit, UHRZEIT_TAGESWECHSEL ) == 0)
-    {   
-      Serial.print("Tageswechsel: Minuten Filterung auf null");
-      mqtt_client.publish(mqtt_topic_text, "Tageswechsel: Minuten Filterung auf null");
-      iSekundenFilterung = 0;
-    }
-    
     Serial.print("mqtt status update: ");
 
-    
-  
     // call sensors.requestTemperatures() to issue a global temperature
     // request to all devices on the bus
     Serial.print("\n Requesting temperatures...");
     sensors.requestTemperatures(); // Send the command to get temperatures
     Serial.println("DONE");
 
-    char mqtt_item[] = MQTT_ITEM;
     float fTemp;
 
     char sBuffer[7];         //the ASCII of the integer will be stored in this char array
@@ -934,6 +928,5 @@ void loop(void) {
 
   machine.run();
   delay(STATE_DELAY);
-
   
 }
