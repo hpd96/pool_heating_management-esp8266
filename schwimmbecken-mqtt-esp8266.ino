@@ -34,7 +34,7 @@
 #define TEMP_DELTA_MEHR_AN      4.5
 #define TEMP_DELTA_WENIGER_AUS  2.5
 
-#define TEMP_MATTEN_MIN_PUMPEN 24.0
+#define TEMP_MATTEN_MIN_PUMPEN 20.0
 #define TEMP_BECKEN_MAX_PUMPEN 38.0
 
 #define MIN_FILTERUNG_PRO_TAG 120                      // 120 [min]
@@ -75,7 +75,7 @@ unsigned int iSekundenFilterung=0;
 
 unsigned long lastmillis;
 
-const char* sVersion = "0.9.94";
+const char* sVersion = "0.9.95";
 
 /* Configuration of NTP */
 #define MY_NTP_SERVER "de.pool.ntp.org"           
@@ -834,8 +834,7 @@ void showInfo(void)
 
 void loop(void) {
   httpServer.handleClient();
-  
-  int i;
+
   char sBUFFER[20];
 
   if (!mqtt_client.connected()) { MqttReconnect(); }
@@ -863,9 +862,8 @@ void loop(void) {
 
     float fTemp;
 
-    char sBuffer[7];         //the ASCII of the integer will be stored in this char array
-    itoa(iSekundenFilterung / 60, sBuffer,10);
-    mqtt_client.publish( mqtt_topic_min_filter, sBuffer );
+    itoa(iSekundenFilterung / 60, sBUFFER, 10);
+    mqtt_client.publish( mqtt_topic_min_filter, sBUFFER );
 
     int bTempValid=false;
 
